@@ -49,12 +49,21 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(async (_req, res, next) => {
+// Fault injection lives in route handlers only: it must not hit /health or
+// /metrics, and handler-level responses keep the real route label.
+async function applyFault(res) {
   if (FAULT === "latency") await new Promise((r) => setTimeout(r, 1500));
   if (FAULT === "errors" && Math.random() < 0.5) {
-    return res.status(500).json({ error: "injected fault" });
+    res.status(500).json({ error: "injected fault" });
+    return true;
   }
-  next();
+  return false;
+}
+
+app.get("/work", async (_req, res) => {
+  if (await applyFault(res)) return;
+  await new Promise((r) => setTimeout(r, 10 + Math.random() * 90));
+  res.json({ status: "ok" });
 });
 
 app.get("/health", (_req, res) => {

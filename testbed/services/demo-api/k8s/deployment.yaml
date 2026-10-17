@@ -17,8 +17,13 @@ spec:
     spec:
       containers:
         - name: demo-api
-          image: pagerpilot-demo-api:0.1.0
+          image: pagerpilot-demo-api:0.2.0
           imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_NAME
+              value: demo-api
+            - name: FAULT_MODE
+              value: ""
           ports:
             - name: http
               containerPort: 3000
