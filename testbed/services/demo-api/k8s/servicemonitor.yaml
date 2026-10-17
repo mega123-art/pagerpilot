@@ -8,7 +8,7 @@ metadata:
 spec:
   namespaceSelector:
     matchNames:
-      - default
+      - demo
   selector:
     matchLabels:
       app: demo-api

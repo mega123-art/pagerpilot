@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-api
-  namespace: default
+  namespace: demo
   labels:
     app: demo-api
 spec:
@@ -14,10 +14,6 @@ spec:
     metadata:
       labels:
         app: demo-api
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /metrics
-        prometheus.io/port: "3000"
     spec:
       containers:
         - name: demo-api

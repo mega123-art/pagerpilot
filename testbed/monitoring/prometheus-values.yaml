@@ -1,5 +1,10 @@
 grafana:
   enabled: true
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://pagerpilot-loki-gateway.monitoring.svc.cluster.local
   persistence:
     enabled: false
   resources:
@@ -22,7 +27,14 @@ prometheus:
         memory: 1Gi
 
 alertmanager:
-  enabled: false
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
 
 kubeStateMetrics:
   enabled: true
