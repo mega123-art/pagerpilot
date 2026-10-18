@@ -1,7 +1,7 @@
 # PagerPilot testbed. Every target that touches the cluster goes through `guard`.
 CONTEXT  := kind-pagerpilot
 K        := kubectl --context $(CONTEXT)
-SERVICES := demo-api
+SERVICES := orders frontend
 SVC_DIR  := services
 GIT_SHA  := $(shell git rev-parse --short HEAD)$(shell git diff --quiet HEAD -- . || echo -dirty)
 
@@ -28,7 +28,7 @@ build: guard
 	done
 
 up: build
-	$(K) apply -f k8s/namespace.yaml -f k8s/servicemonitor.yaml
+	$(K) apply -f k8s/namespace.yaml -f k8s/servicemonitor.yaml -f $(SVC_DIR)/postgres/k8s/
 	@set -e; for s in $(SERVICES); do \
 	  v=$$(node -p "require('./$(SVC_DIR)/$$s/package.json').version"); \
 	  $(K) apply -f $(SVC_DIR)/$$s/k8s/service.yaml; \
@@ -36,18 +36,18 @@ up: build
 	  VERSION=$$v GIT_SHA=$$sha envsubst '$$VERSION $$GIT_SHA' < $(SVC_DIR)/$$s/k8s/deployment.yaml | $(K) apply -f -; \
 	done
 
-# Deletes: the demo-shop workloads + Services in ns demo and the demo-shop
-# ServiceMonitor. Keeps the monitoring stack, namespaces and Docker images.
+# Deletes everything labelled part-of=demo-shop in ns demo (Deployments, Services,
+# the postgres ConfigMap; postgres data is an emptyDir so it goes too) plus the
+# demo-shop ServiceMonitor. Keeps monitoring stack, namespaces and Docker images.
 down: guard
-	@set -e; for s in $(SERVICES); do \
-	  $(K) delete -n demo deploy/$$s svc/$$s --ignore-not-found; done
+	$(K) delete -n demo deploy,svc,configmap -l app.kubernetes.io/part-of=demo-shop
 	$(K) delete -n monitoring servicemonitor/demo-shop --ignore-not-found
 
 reset: down up
 
 # P1 checks only: pods Ready, targets up. P7 extends (SLOs, alerts, logs).
 verify: guard
-	@$(K) -n demo wait --for=condition=Ready pod -l app.kubernetes.io/part-of=demo-shop --timeout=60s
+	@$(K) -n demo wait --for=condition=Ready pod -l app.kubernetes.io/part-of=demo-shop --timeout=180s
 	@$(K) -n monitoring get --raw '/api/v1/namespaces/monitoring/services/pagerpilot-monitoring-kube-prometheus:9090/proxy/api/v1/query?query=up%7Bnamespace%3D%22demo%22%7D' \
 	  | jq -e '(.data.result | length > 0) and all(.data.result[]; .value[1] == "1")' >/dev/null \
 	  && echo "all demo targets up=1" || { echo "demo targets missing or down" >&2; exit 1; }
