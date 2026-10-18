@@ -1,0 +1,20 @@
+# One monitor for every demo-shop service: scrape anything labelled part-of=demo-shop.
+# Prometheus adds namespace/service/pod labels from the discovered target.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demo-shop
+  namespace: monitoring
+  labels:
+    release: pagerpilot-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - demo
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: demo-shop
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
