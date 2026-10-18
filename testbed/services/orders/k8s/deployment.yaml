@@ -22,6 +22,10 @@ spec:
       annotations:
         demo-shop/git-sha: "${GIT_SHA}"
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -U postgres -d shop; do sleep 2; done"]
       containers:
         - name: orders
           image: orders:${VERSION}
