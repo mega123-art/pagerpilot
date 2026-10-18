@@ -4,7 +4,7 @@ CONTEXT  := kind-pagerpilot
 K        := kubectl --context $(CONTEXT)
 SERVICES := orders frontend
 
-.PHONY: guard build up down reset verify inject revert smoke settle monitoring loadgen
+.PHONY: control guard build up down reset verify inject revert smoke settle monitoring loadgen
 
 guard:
 	@[ "$$(kubectl config current-context)" = "$(CONTEXT)" ] || \
@@ -44,19 +44,21 @@ down: guard
 
 reset: down up
 
-# Checks so far: pods Ready, postgres seeded, targets up. P7 extends (SLOs, alerts, logs).
+# Baseline checks: context, pods Ready, seed, targets up, SLOs, no stray alerts, Loki queryable.
 verify: guard
-	@$(K) -n demo wait --for=condition=Ready pod -l app.kubernetes.io/part-of=demo-shop --timeout=180s
-	@n=$$($(K) -n demo exec deploy/postgres -- psql -U postgres -d shop -tAc 'select count(*) from orders'); \
-	  [ "$$n" -ge 500000 ] && echo "orders seeded ($$n rows)" || { echo "orders table missing or unseeded ($$n); check: kubectl -n demo logs deploy/postgres, or make reset" >&2; exit 1; }
-	@$(K) -n monitoring get --raw '/api/v1/namespaces/monitoring/services/pagerpilot-monitoring-kube-prometheus:9090/proxy/api/v1/query?query=up%7Bnamespace%3D%22demo%22%7D' \
-	  | jq -e '(.data.result | length > 0) and all(.data.result[]; .value[1] == "1")' >/dev/null \
-	  && echo "all demo targets up=1" || { echo "demo targets missing or down" >&2; exit 1; }
+	@scripts/verify.sh
 
 inject revert: guard
 	@[ -n "$(S)" ] || { echo "usage: make $@ S=<scenario>" >&2; exit 1; }
 	@[ -x scenarios/$(S)/$@.sh ] || { echo "no scenarios/$(S)/$@.sh" >&2; exit 1; }
 	scenarios/$(S)/$@.sh
 
+# make smoke S=<id>: inject, wait for the alert, save the webhook payload to evals/fixtures/alerts/<id>.json,
+# revert, confirm it resolves and the system returns to baseline.
 smoke: guard
-	@echo "smoke lands in P7" >&2; exit 1
+	@[ -n "$(S)" ] || { echo "usage: make smoke S=<scenario>" >&2; exit 1; }
+	@scripts/smoke.sh $(S)
+
+# 15 minutes with no change: there must be zero alerts.
+control: guard
+	@scripts/control.sh
