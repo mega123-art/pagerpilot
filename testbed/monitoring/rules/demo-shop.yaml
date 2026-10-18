@@ -1,0 +1,61 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-shop
+  namespace: monitoring
+  labels:
+    release: pagerpilot-monitoring
+spec:
+  groups:
+    - name: demo-shop
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            sum by (service, namespace) (rate(http_requests_total{namespace="demo", status=~"5..", route!~"/health|/metrics"}[2m]))
+              /
+            sum by (service, namespace) (rate(http_requests_total{namespace="demo", route!~"/health|/metrics"}[2m]))
+              > 0.05
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.service }}: elevated 5xx responses"
+            description: "{{ $value | humanizePercentage }} of requests to {{ $labels.service }} returned 5xx over the last 2 minutes."
+            dashboard_url: "http://localhost:3000/d/demo-shop/demo-shop?var-service={{ $labels.service }}"
+        - alert: HighLatencyP95
+          expr: |
+            histogram_quantile(0.95, sum by (service, namespace, le) (rate(http_request_duration_seconds_bucket{namespace="demo", route!~"/health|/metrics"}[2m])))
+              > 0.5
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.service }}: slow responses"
+            description: "p95 request latency for {{ $labels.service }} is {{ $value | humanizeDuration }} over the last 2 minutes."
+            dashboard_url: "http://localhost:3000/d/demo-shop/demo-shop?var-service={{ $labels.service }}"
+        - alert: ContainerRestarting
+          expr: |
+            label_replace(
+              increase(kube_pod_container_status_restarts_total{namespace="demo"}[10m]) > 0,
+              "service", "$1", "container", "(.*)")
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.service }}: container restarted"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} restarted {{ $value | printf \"%.0f\" }} time(s) in the last 10 minutes."
+            dashboard_url: "http://localhost:3000/d/demo-shop/demo-shop?var-service={{ $labels.service }}"
+        - alert: ContainerMemoryHigh
+          expr: |
+            label_replace(
+              max by (namespace, pod, container) (container_memory_working_set_bytes{namespace="demo", container!="", container!="POD"})
+                / on (namespace, pod, container)
+              max by (namespace, pod, container) (kube_pod_container_resource_limits{namespace="demo", resource="memory"})
+                > 0.9,
+              "service", "$1", "container", "(.*)")
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.service }}: memory near limit"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of its memory limit."
+            dashboard_url: "http://localhost:3000/d/demo-shop/demo-shop?var-service={{ $labels.service }}"

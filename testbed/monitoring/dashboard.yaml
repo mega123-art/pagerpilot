@@ -1,0 +1,216 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-shop-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  demo-shop.json: |
+    {
+      "uid": "demo-shop",
+      "title": "demo-shop",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "15s",
+      "time": {
+        "from": "now-30m",
+        "to": "now"
+      },
+      "templating": {
+        "list": [
+          {
+            "name": "service",
+            "type": "query",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "query": "label_values(http_requests_total{namespace=\"demo\"}, service)",
+            "refresh": 2,
+            "current": {
+              "text": "frontend",
+              "value": "frontend"
+            }
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Request rate",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum by (route,status)(rate(http_requests_total{service=\"$service\", namespace=\"demo\",route!~\"/health|/metrics\"}[1m]))",
+              "legendFormat": "{{route}} {{status}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "5xx ratio",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit"
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sum(rate(http_requests_total{service=\"$service\", namespace=\"demo\",route!~\"/health|/metrics\",status=~\"5..\"}[1m])) / sum(rate(http_requests_total{service=\"$service\", namespace=\"demo\",route!~\"/health|/metrics\"}[1m]))",
+              "legendFormat": "5xx"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Latency p50 / p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 8,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.5, sum by (le)(rate(http_request_duration_seconds_bucket{service=\"$service\", namespace=\"demo\",route!~\"/health|/metrics\"}[1m])))",
+              "legendFormat": "p50"
+            },
+            {
+              "refId": "B",
+              "expr": "histogram_quantile(0.95, sum by (le)(rate(http_request_duration_seconds_bucket{service=\"$service\", namespace=\"demo\",route!~\"/health|/metrics\"}[1m])))",
+              "legendFormat": "p95"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Memory working set vs limit",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 8,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "max by (pod)(container_memory_working_set_bytes{namespace=\"demo\",container=\"$service\"})",
+              "legendFormat": "{{pod}} used"
+            },
+            {
+              "refId": "B",
+              "expr": "max by (pod)(kube_pod_container_resource_limits{namespace=\"demo\",container=\"$service\",resource=\"memory\"})",
+              "legendFormat": "{{pod}} limit"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "DB pool (orders)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 16,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "db_pool_connections{namespace=\"demo\"}",
+              "legendFormat": "{{state}}"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Upstream latency (frontend)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 16,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (upstream,le)(rate(upstream_request_duration_seconds_bucket{namespace=\"demo\"}[1m])))",
+              "legendFormat": "{{upstream}} p95"
+            }
+          ]
+        }
+      ]
+    }
