@@ -1,0 +1,28 @@
+id: bad_config
+target_service: frontend
+inject: make -C testbed inject S=bad_config
+revert: make -C testbed revert S=bad_config
+settle_seconds: 150        # frontend fails at rollout; alerts fire after ~2 min
+expected_alerts:
+  - alertname: HighErrorRate
+    service: frontend
+  - alertname: HighLatencyP95
+    service: frontend
+ground_truth:
+  root_cause_service: frontend
+  category: bad_config
+  summary: >
+    A config-only commit ("chore(frontend): send orders traffic to the new
+    listener on :3002") changed ORDERS_URL in deploy/frontend-config.yaml to
+    http://orders:3002. Orders does not listen on 3002, so every frontend call to
+    orders hangs until the 3s upstream timeout and returns 504. Orders itself is
+    healthy but receives no traffic.
+  must_mention:
+    - config change / rollout of the frontend
+    - ORDERS_URL changed to port 3002
+    - frontend upstream timeouts to orders
+    - orders healthy but request rate near zero
+  evidence_by_signal:
+    metrics: frontend 5xx ~100% and p95 ~3-5s from the rollout; upstream_requests_total{status="timeout"} rises; orders http_requests_total rate drops to ~0 while its error rate and latency stay normal.
+    logs: frontend errors status=504 error code ETIMEDOUT "The operation was aborted due to timeout"; orders logs go quiet (only probes).
+    deploys: decisive. A GitHub Deployment "frontend config <sha>" and a config-only commit touching deploy/frontend-config.yaml (no application code changed); frontend pod annotation demo-shop/config-sha changes.

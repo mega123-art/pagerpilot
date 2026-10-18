@@ -1,0 +1,28 @@
+id: bad_deploy
+target_service: orders
+inject: make -C testbed inject S=bad_deploy
+revert: make -C testbed revert S=bad_deploy
+settle_seconds: 150        # errors start at rollout; HighErrorRate fires after ~2 min
+expected_alerts:
+  - alertname: HighErrorRate
+    service: orders
+  - alertname: HighErrorRate       # secondary: frontend sees 502s from orders
+    service: frontend
+ground_truth:
+  root_cause_service: orders
+  category: bad_deploy
+  summary: >
+    orders v1.1.0 (commit "perf(orders): paginate order history by placed_at")
+    sorts the order-history query on a placed_at column. The migration that
+    adds the column (db/migrations/003_orders_placed_at.sql) shipped in the same
+    commit but was never applied to the database, so every GET /orders?customer_id=
+    fails with Postgres error 42703 "column placed_at does not exist".
+  must_mention:
+    - orders v1.1.0 rollout / recent deploy
+    - the perf(orders) commit changing the history query
+    - column "placed_at" does not exist / migration not applied
+    - errors on the order-history route (GET /orders, frontend /customers/:id/orders)
+  evidence_by_signal:
+    metrics: error rate for orders and frontend jumps at the rollout timestamp (only the history route fails, ~30% of traffic); app_build_info{version="1.1.0"} appears and 1.0.2 disappears; latency unchanged.
+    logs: orders error lines version=1.1.0, path=/orders, status=500, error code 42703 "column \"placed_at\" does not exist"; frontend "orders responded 500".
+    deploys: decisive. A GitHub Deployment "orders v1.1.0" seconds before the first error, pointing at the release commit; the diff of the preceding perf commit shows the query change and the unapplied migration.
