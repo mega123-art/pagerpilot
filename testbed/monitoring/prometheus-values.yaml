@@ -26,8 +26,43 @@ prometheus:
       limits:
         memory: 1Gi
 
+# kind control-plane components aren't scrapeable; their default alerts would always fire
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeProxy: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
 alertmanager:
   enabled: true
+  # Only demo-namespace alerts reach the webhook; Watchdog and everything else go to 'null'.
+  config:
+    route:
+      receiver: 'null'
+      group_by: [alertname, service]
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 1h
+      routes:
+        - receiver: alert-echo
+          matchers:
+            - namespace = "demo"
+    receivers:
+      - name: 'null'
+      - name: alert-echo
+        webhook_configs:
+          - url: http://alert-echo.platform.svc.cluster.local:8080/
+            send_resolved: true
   alertmanagerSpec:
     resources:
       requests:
