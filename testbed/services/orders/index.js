@@ -71,7 +71,7 @@ app.post("/orders", async (req, res) => {
     return res.status(400).json({ error: "customer_id and total_cents must be integers" });
   }
   const r = await query(req, "insert_order",
-    "INSERT INTO orders (customer_id, status, total_cents) VALUES ($1, 'new', $2) RETURNING *",
+    "INSERT INTO orders (customer_id, status, total_cents, notes) VALUES ($1, 'new', $2, '') RETURNING *",
     [customer_id, total_cents]);
   res.status(201).json(r.rows[0]);
 });
@@ -95,11 +95,14 @@ app.get("/orders", async (req, res) => {
 
 app.post("/reports/export", async (req, res) => {
   const client = await pool.connect();
+  const started = Date.now();
   try {
     const r = await timed(req, "export_orders", client,
       "SELECT customer_id, count(*)::int AS orders, sum(total_cents)::bigint AS revenue FROM orders GROUP BY customer_id");
     await sleep(exportHoldMs); // result is written out while the connection is held
     res.json({ customers: r.rowCount });
+    const ms = Date.now() - started;
+    if (ms > 3000) log("warn", `slow export ${ms}ms on orders`, { request_id: req.id, table: "orders", duration_ms: ms });
   } finally {
     client.release();
   }

@@ -14,12 +14,14 @@ data:
       customer_id integer     NOT NULL,
       status      text        NOT NULL,
       total_cents integer     NOT NULL,
+      notes       text        NOT NULL,
       created_at  timestamptz NOT NULL DEFAULT now()
     );
-    INSERT INTO orders (customer_id, status, total_cents, created_at)
+    INSERT INTO orders (customer_id, status, total_cents, notes, created_at)
     SELECT 1 + (random() * 4999)::int,
            (ARRAY['new','paid','shipped','delivered'])[1 + (random() * 3)::int],
            500 + (random() * 20000)::int,
+           repeat(md5(random()::text), 6),
            now() - random() * interval '180 days'
     FROM generate_series(1, 500000);
     CREATE INDEX idx_orders_customer_id ON orders (customer_id);
@@ -74,6 +76,7 @@ spec:
               cpu: 100m
               memory: 256Mi
             limits:
+              cpu: 500m
               memory: 512Mi
       volumes:
         - name: data

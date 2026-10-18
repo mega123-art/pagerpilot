@@ -39,6 +39,8 @@ spec:
               value: postgres
             - name: PGDATABASE
               value: shop
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
             - name: DB_POOL_MAX
               value: "10"
             - name: EXPORT_HOLD_MS
