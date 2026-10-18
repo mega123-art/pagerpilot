@@ -5,3 +5,4 @@ set -euo pipefail
 stop_client
 $K -n demo rollout restart deploy/orders >/dev/null
 $K -n demo rollout status deploy/orders --timeout=120s >/dev/null
+wait_quiet

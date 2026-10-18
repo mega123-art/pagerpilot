@@ -17,3 +17,20 @@ start_client() {
 stop_client() {
   $K -n demo delete deploy/ext-client configmap/ext-client-script --ignore-not-found >/dev/null
 }
+
+# prom_count <promql>: first sample value of an instant query, 0 if empty.
+prom_count() {
+  $K -n monitoring get --raw "/api/v1/namespaces/monitoring/services/pagerpilot-monitoring-kube-prometheus:9090/proxy/api/v1/query?query=$(python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))' "$1")" \
+    | jq -r '.data.result[0].value[1] // "0"'
+}
+
+# wait_quiet [timeout_s]: block until no alert (any state) exists for ns demo, so the
+# next scenario starts from baseline. Prints how long that took.
+wait_quiet() {
+  local timeout=${1:-900} start=$SECONDS
+  until [ "$(prom_count 'count(ALERTS{namespace="demo"}) or vector(0)')" = "0" ]; do
+    [ $((SECONDS - start)) -lt "$timeout" ] || { echo "alerts still present after ${timeout}s" >&2; return 1; }
+    sleep 10
+  done
+  echo "baseline after $((SECONDS - start))s"
+}

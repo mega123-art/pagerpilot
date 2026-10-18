@@ -29,11 +29,29 @@ Extra traffic comes from a Deployment `ext-client` (k6, ns demo) created by `inj
 
 | scenario | trigger | settle (measured) | alerts | metrics | logs | deploys |
 |---|---|---|---|---|---|---|
-| memory_leak | 12 rps with unique session ids -> unbounded session map in orders | first OOM ~4.7 min | ContainerRestarting (memory alert doesn't hold >90% for 2m) | strong | weak | none |
+| memory_leak | 12 rps with unique session ids -> unbounded session map in orders | first OOM ~4.7 min; revert ~10 min | ContainerRestarting (memory alert only pending) | strong | weak | none |
 | db_pool_exhaustion | 4 rps POST /reports/export, each holds a connection ~4s | ~2 min | HighErrorRate + HighLatencyP95 on orders and frontend | strong | strong | none |
 | slow_query_missing_index | DROP INDEX on orders.customer_id + 8 rps order-history traffic | ~2-3 min | HighLatencyP95 on frontend and orders | strong | medium | none |
 
 Notes
-- Run scenarios >=10 min apart or let alerts resolve first: ContainerRestarting looks back 10 min.
+- Reverts wait for alerts to clear, so back-to-back runs start clean.
 - The wider `notes` column (~190B/row), postgres `cpu: 500m` and orders `NODE_OPTIONS=--max-old-space-size=192` exist so these faults look the way they do in production: scans cost real time, and the leak ends in OOMKilled instead of a V8 heap abort.
 - Baseline orders image is 1.0.2 (1.0.1 added the notes column, 1.0.2 the slow-export warning). bad_deploy will ship 1.1.0.
+
+## Deploy-history scenarios (P6)
+Source of `orders` and `frontend` lives in a separate public repo, **github.com/mega123-art/pagerpilot-demo-shop**, so this repo stays clean and the agent's deploys tool never sees ground truth. This repo only holds cluster manifests and scripts (`testbed/scripts/`): `make up` clones the repo into `testbed/.cache/`, builds each image from a release tag (`orders-v1.0.2`, `frontend-v1.0.0`), and deploys it. The git sha on every Deployment is the real commit in that repo.
+
+- **Baseline history is backdated** (Sept 14 - Oct 1) so a no-deploy scenario never shows a "recent" commit. This is a test fixture, not a claim about real development dates.
+- **bad_deploy** creates its evidence at inject time: applies `scenarios/bad_deploy/regression.diff` as two normal commits (`perf(orders): paginate order history by placed_at`, `chore(release): orders v1.1.0`), tags `orders-v1.1.0`, pushes, deploys the image, records a GitHub Deployment. The diff adds a `placed_at` sort and its migration in the same commit, but the migration is never applied, so the history query fails with Postgres 42703.
+- **bad_config** commits `ORDERS_URL: http://orders:3002` to `deploy/frontend-config.yaml`, redeploys the frontend (config sha is a pod annotation) and records a Deployment. Orders doesn't listen on 3002, so frontend calls time out after 3s (504) and orders traffic drops to zero.
+- **revert** for both: redeploy baseline, force-reset `main` to `orders-v1.0.2`, delete the `orders-v1.1.0` tag, delete all deployment records. Needs `gh` authenticated with `repo` scope. Anyone cloning the repo during a run sees the incident commits; they disappear on revert.
+
+Measured: bad_deploy errors start at rollout, alerts after ~2 min, back to baseline 131s after revert. bad_config: alerts HighErrorRate + HighLatencyP95 (frontend) ~1.5 min after rollout, baseline 111s after revert.
+
+## Caveats resolved / known
+- Reverts now block (`wait_quiet`) until no demo alert is pending/firing, so the next run starts clean (`make settle` does the same on its own). memory_leak revert takes ~10 min because `ContainerRestarting` looks back 10 min.
+- memory_leak: `ContainerMemoryHigh` goes pending but does not reliably fire (heap grows in bursts near the limit). A ramped/tapering load was tried and didn't make it reliable, so the scenario stays a constant 12 rps and `ContainerRestarting` is the expected alert.
+- slow_query_missing_index also alerts on orders; the eval fixture for it uses the frontend alert.
+
+## These services are intentionally insecure
+No auth, `SELECT *`, a never-evicted session map, trust-auth Postgres. They are throwaway targets for incident scenarios and run only on the local kind cluster. Never deploy them anywhere reachable.

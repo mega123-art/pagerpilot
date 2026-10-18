@@ -31,3 +31,9 @@
 - Tuned on the live cluster: leak 20->12 rps (OOM in ~4.7 min instead of ~3); export 6->4 rps (still saturates the pool, less than total outage); table widened and postgres CPU-limited, since a missing index cost only 6ms on the 32MB table.
 - orders 1.0.1 (notes column) and 1.0.2 (slow-export warn log). Postgres reseeded.
 - Known: slow_query also alerts on orders (not only frontend); memory alert does not fire in memory_leak.
+
+## P6: deploy-history scenarios (2026-10-18)
+- Created public repo mega123-art/pagerpilot-demo-shop (orders, frontend, shared, migrations, frontend config); testbed now builds images from its release tags. Baseline history backdated Sept-Oct 1.
+- bad_deploy (orders v1.1.0, unapplied migration -> 42703 on order history) and bad_config (ORDERS_URL -> :3002 -> frontend timeouts). Both inject/revert tested; GitHub Deployment recorded at inject and removed on revert; repo reset to baseline.
+- `wait_quiet` in every revert, `make settle`. Memory alert caveat documented (ramp tried, reverted).
+- Ground truth in evals/scenarios/{bad_deploy,bad_config}.yaml.
