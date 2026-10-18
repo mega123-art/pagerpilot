@@ -1,0 +1,99 @@
+# Local kind only: trust auth and an emptyDir, so a fresh pod re-seeds from the init script.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: demo
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: demo-shop
+data:
+  01-seed.sql: |
+    CREATE TABLE orders (
+      id          bigserial PRIMARY KEY,
+      customer_id integer     NOT NULL,
+      status      text        NOT NULL,
+      total_cents integer     NOT NULL,
+      created_at  timestamptz NOT NULL DEFAULT now()
+    );
+    INSERT INTO orders (customer_id, status, total_cents, created_at)
+    SELECT 1 + (random() * 4999)::int,
+           (ARRAY['new','paid','shipped','delivered'])[1 + (random() * 3)::int],
+           500 + (random() * 20000)::int,
+           now() - random() * interval '180 days'
+    FROM generate_series(1, 500000);
+    CREATE INDEX idx_orders_customer_id ON orders (customer_id);
+    ANALYZE orders;
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: demo
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: demo-shop
+    app.kubernetes.io/version: "16"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+        app.kubernetes.io/part-of: demo-shop
+        app.kubernetes.io/version: "16"
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_DB
+              value: shop
+            - name: POSTGRES_HOST_AUTH_METHOD
+              value: trust
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-d", "shop"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: init
+          configMap:
+            name: postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: demo
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: demo-shop
+spec:
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
