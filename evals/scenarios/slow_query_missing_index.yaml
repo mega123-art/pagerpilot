@@ -1,0 +1,27 @@
+id: slow_query_missing_index
+target_service: frontend
+inject: make -C testbed inject S=slow_query_missing_index
+revert: make -C testbed revert S=slow_query_missing_index
+settle_seconds: 180
+expected_alerts:
+  - alertname: HighLatencyP95
+    service: frontend
+  - alertname: HighLatencyP95      # orders also alerts; the eval fixture uses the frontend one
+    service: orders
+ground_truth:
+  root_cause_service: orders      # cause lives in orders/postgres; alert is on frontend
+  category: slow_query
+  summary: >
+    The index on orders.customer_id was dropped, so order-history lookups
+    (GET /orders?customer_id=, reached via frontend /customers/:id/orders) do a
+    sequential scan of ~500k rows. Under normal order-history traffic postgres
+    saturates its CPU limit and latency climbs. No recent deploy.
+  must_mention:
+    - slow query / full table scan on orders by customer_id
+    - missing index idx_orders_customer_id
+    - frontend latency is a downstream symptom
+    - no recent deploy
+  evidence_by_signal:
+    metrics: db_query_duration_seconds{query="list_orders"} p95 ~2s (baseline ~1ms); frontend upstream_request_duration_seconds{upstream="orders"} up; frontend and orders p95 up; error rate stays near zero.
+    logs: orders warn "slow query <n>ms on orders" with query=list_orders, table=orders, duration_ms 800-1100.
+    deploys: none.

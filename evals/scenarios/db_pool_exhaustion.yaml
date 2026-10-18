@@ -1,0 +1,30 @@
+id: db_pool_exhaustion
+target_service: orders
+inject: make -C testbed inject S=db_pool_exhaustion
+revert: make -C testbed revert S=db_pool_exhaustion
+settle_seconds: 150        # pool saturates in ~30s; HighErrorRate/HighLatencyP95 fire after ~2 min
+expected_alerts:
+  - alertname: HighErrorRate
+    service: orders
+  - alertname: HighLatencyP95
+    service: orders
+  - alertname: HighErrorRate       # secondary: frontend sees 502s from orders
+    service: frontend
+  - alertname: HighLatencyP95
+    service: frontend
+ground_truth:
+  root_cause_service: orders
+  category: connection_pool_exhaustion
+  summary: >
+    A client is calling POST /reports/export at a rate that, with each call
+    holding a pooled DB connection for ~4s, keeps all 10 pool connections busy.
+    Other requests wait for a connection and fail after the 2s connect timeout.
+    No recent deploy.
+  must_mention:
+    - db connection pool exhausted / connections waiting
+    - POST /reports/export
+    - no recent deploy
+  evidence_by_signal:
+    metrics: db_pool_connections{state="waiting"} > 0 and total pinned at 10; orders and frontend p95 up; 5xx from orders (503) and frontend (502); http_requests_total for route /reports/export elevated.
+    logs: orders "timeout exceeded when trying to connect" (status 503, ~2000ms) and "slow export <n>ms on orders" warnings; frontend "orders responded 503".
+    deploys: none.

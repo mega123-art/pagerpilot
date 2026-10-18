@@ -1,0 +1,23 @@
+id: memory_leak
+target_service: orders
+inject: make -C testbed inject S=memory_leak
+revert: make -C testbed revert S=memory_leak
+settle_seconds: 330        # ~4.7 min to first OOM kill, alert fires within ~1 min after
+expected_alerts:
+  - alertname: ContainerRestarting
+    service: orders
+ground_truth:
+  root_cause_service: orders
+  category: resource_exhaustion
+  summary: >
+    orders keeps a per-session lookup result in an unbounded in-memory map. A
+    flood of requests with unique session ids grows the heap until the 128Mi
+    limit is hit and the container is OOMKilled, repeatedly. No recent deploy.
+  must_mention:
+    - memory growth in orders
+    - OOMKilled / container restarts
+    - no recent deploy
+  evidence_by_signal:
+    metrics: strong. container_memory_working_set_bytes for orders climbs linearly toward the limit and drops at each restart; kube_pod_container_status_restarts_total increases; request rate to /customers/:id/orders is higher than baseline.
+    logs: weak. orders logs are ordinary request lines; nothing names memory.
+    deploys: none. No deployment near the incident.
