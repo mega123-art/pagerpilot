@@ -1,0 +1,23 @@
+diff --git a/db/migrations/003_orders_placed_at.sql b/db/migrations/003_orders_placed_at.sql
+new file mode 100644
+index 0000000..1e02112
+--- /dev/null
++++ b/db/migrations/003_orders_placed_at.sql
+@@ -0,0 +1,4 @@
++ALTER TABLE orders ADD COLUMN placed_at timestamptz;
++UPDATE orders SET placed_at = created_at;
++ALTER TABLE orders ALTER COLUMN placed_at SET NOT NULL;
++CREATE INDEX idx_orders_customer_placed_at ON orders (customer_id, placed_at DESC);
+diff --git a/orders/index.js b/orders/index.js
+index 150b1db..df4e2d2 100644
+--- a/orders/index.js
++++ b/orders/index.js
+@@ -87,7 +87,7 @@ app.get("/orders", async (req, res) => {
+   const customerId = Number(req.query.customer_id);
+   if (!Number.isInteger(customerId)) return res.status(400).json({ error: "customer_id required" });
+   const r = await query(req, "list_orders",
+-    "SELECT * FROM orders WHERE customer_id = $1 ORDER BY id DESC LIMIT 50", [customerId]);
++    "SELECT * FROM orders WHERE customer_id = $1 ORDER BY placed_at DESC, id DESC LIMIT 50", [customerId]);
+   const sid = req.get("x-session-id");
+   if (sid) sessionHistory.set(sid, { customerId, rows: r.rows });
+   res.json(r.rows);
