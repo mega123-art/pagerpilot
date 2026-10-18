@@ -18,3 +18,10 @@
 - 15 min soak: 8 rps on each of frontend/orders, p95 frontend 9ms / orders 5ms, zero 5xx, zero restarts.
 - Only firing alerts are Watchdog and kube-etcd/scheduler/controller-manager/proxy target-down (kind has no scrapeable control plane). Fixed in P4 by disabling those components.
 - Fixes folded in: orders initContainer waits for postgres; `make verify` checks seed; build hash ignores `k8s/` manifests.
+
+## P4: alerting (2026-10-18)
+- Chart values verified with `helm show values` (kube-prometheus-stack 92.10.1): disabled kubeControllerManager/kubeScheduler/kubeProxy/kubeEtcd and their defaultRules; Alertmanager routing via `alertmanager.config`.
+- `monitoring/rules/demo-shop.yaml`: HighErrorRate, HighLatencyP95, ContainerRestarting, ContainerMemoryHigh (labels service/namespace/severity; symptom-only descriptions; dashboard_url -> Grafana dashboard `demo-shop`, `monitoring/dashboard.yaml`).
+- Alertmanager: group_by [alertname, service], 10s/1m/1h, send_resolved; namespace="demo" -> webhook `alert-echo` (ns platform), everything else -> `null`.
+- Verified: all 4 rules health=ok; under load only Watchdog fires; manual alert (namespace=demo) reached alert-echo, a kube-system one did not.
+- `make monitoring` applies the Helm values. dashboard_url assumes `kubectl -n monitoring port-forward svc/pagerpilot-monitoring-grafana 3000:80`.

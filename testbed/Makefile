@@ -1,11 +1,11 @@
 # PagerPilot testbed. Every target that touches the cluster goes through `guard`.
 CONTEXT  := kind-pagerpilot
 K        := kubectl --context $(CONTEXT)
-SERVICES := orders frontend
+SERVICES := orders frontend alert-echo
 SVC_DIR  := services
 GIT_SHA  := $(shell git rev-parse --short HEAD)$(shell git diff --quiet HEAD -- . || echo -dirty)
 
-.PHONY: loadgen guard build up down reset verify inject revert smoke
+.PHONY: monitoring loadgen guard build up down reset verify inject revert smoke
 
 guard:
 	@[ "$$(kubectl config current-context)" = "$(CONTEXT)" ] || \
@@ -28,7 +28,7 @@ build: guard
 	done
 
 up: build
-	$(K) apply -f k8s/namespace.yaml -f k8s/servicemonitor.yaml -f $(SVC_DIR)/postgres/k8s/
+	$(K) apply -f k8s/namespace.yaml -f k8s/servicemonitor.yaml -f $(SVC_DIR)/postgres/k8s/ -f monitoring/rules/ -f monitoring/dashboard.yaml
 	@set -e; for s in $(SERVICES); do \
 	  v=$$(node -p "require('./$(SVC_DIR)/$$s/package.json').version"); \
 	  $(K) apply -f $(SVC_DIR)/$$s/k8s/service.yaml; \
@@ -36,6 +36,11 @@ up: build
 	  VERSION=$$v GIT_SHA=$$sha envsubst '$$VERSION $$GIT_SHA' < $(SVC_DIR)/$$s/k8s/deployment.yaml | $(K) apply -f -; \
 	done
 	@$(MAKE) --no-print-directory loadgen
+
+# Applies monitoring/prometheus-values.yaml (Alertmanager routing, disabled kind components).
+monitoring: guard
+	helm --kube-context $(CONTEXT) upgrade pagerpilot-monitoring prometheus-community/kube-prometheus-stack \
+	  --version 92.10.1 -n monitoring -f monitoring/prometheus-values.yaml
 
 # Scripts live in ConfigMap loadgen-scripts (every file in loadgen/); changing one restarts the pod.
 loadgen: guard
@@ -49,7 +54,7 @@ loadgen: guard
 # demo-shop ServiceMonitor. Keeps monitoring stack, namespaces and Docker images.
 down: guard
 	$(K) delete -n demo deploy,svc,configmap -l app.kubernetes.io/part-of=demo-shop
-	$(K) delete -n monitoring servicemonitor/demo-shop --ignore-not-found
+	$(K) delete -n monitoring servicemonitor/demo-shop prometheusrule/demo-shop configmap/demo-shop-dashboard --ignore-not-found
 
 reset: down up
 
