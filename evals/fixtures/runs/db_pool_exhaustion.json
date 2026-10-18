@@ -1,0 +1,14 @@
+{
+  "scenario": "db_pool_exhaustion",
+  "alert": "HighErrorRate",
+  "service": "orders",
+  "inject_started": "2026-10-18T13:40:59Z",
+  "inject_finished": "2026-10-18T13:40:59Z",
+  "alert_firing_at": "2026-10-18T13:42:24.613Z",
+  "webhook_received_at": "2026-10-18T13:42:34.630Z",
+  "seconds_inject_to_firing": 91,
+  "revert_started": "2026-10-18T13:42:35Z",
+  "revert_seconds": 111,
+  "alert_resolved_at": "2026-10-18T13:44:24.613Z",
+  "baseline_restored": true
+}

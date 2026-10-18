@@ -1,0 +1,10 @@
+{
+  "scenario": "control",
+  "start": "2026-10-18T13:25:48Z",
+  "end": "2026-10-18T13:40:54Z",
+  "seconds": 900,
+  "alerts_seen": 0,
+  "frontend_p95_seconds": 0.009575357239148019,
+  "http_5xx": 0,
+  "pass": true
+}

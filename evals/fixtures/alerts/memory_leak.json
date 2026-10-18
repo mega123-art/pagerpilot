@@ -1,0 +1,59 @@
+{
+  "receiver": "alert-echo",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ContainerRestarting",
+        "container": "orders",
+        "endpoint": "http",
+        "instance": "10.244.0.6:8080",
+        "job": "kube-state-metrics",
+        "namespace": "demo",
+        "pod": "orders-cb9fdc8c7-8xrlq",
+        "prometheus": "monitoring/pagerpilot-monitoring-kube-prometheus",
+        "service": "orders",
+        "severity": "warning",
+        "uid": "5d057eeb-5622-4d48-b209-897a3a1d44e6"
+      },
+      "annotations": {
+        "dashboard_url": "http://localhost:3000/d/demo-shop/demo-shop?var-service=orders",
+        "description": "Container orders in pod orders-cb9fdc8c7-8xrlq restarted 1 time(s) in the last 10 minutes.",
+        "summary": "orders: container restarted"
+      },
+      "startsAt": "2026-10-18T14:06:54.613Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://pagerpilot-monitoring-kube-prometheus.monitoring:9090/graph?g0.expr=label_replace%28increase%28kube_pod_container_status_restarts_total%7Bnamespace%3D%22demo%22%7D%5B10m%5D%29+%3E+0%2C+%22service%22%2C+%22%241%22%2C+%22container%22%2C+%22%28.%2A%29%22%29&g0.tab=1",
+      "fingerprint": "e573bc9dc65c2936"
+    }
+  ],
+  "notification_reason": "first notification",
+  "groupLabels": {
+    "alertname": "ContainerRestarting",
+    "service": "orders"
+  },
+  "commonLabels": {
+    "alertname": "ContainerRestarting",
+    "container": "orders",
+    "endpoint": "http",
+    "instance": "10.244.0.6:8080",
+    "job": "kube-state-metrics",
+    "namespace": "demo",
+    "pod": "orders-cb9fdc8c7-8xrlq",
+    "prometheus": "monitoring/pagerpilot-monitoring-kube-prometheus",
+    "service": "orders",
+    "severity": "warning",
+    "uid": "5d057eeb-5622-4d48-b209-897a3a1d44e6"
+  },
+  "commonAnnotations": {
+    "dashboard_url": "http://localhost:3000/d/demo-shop/demo-shop?var-service=orders",
+    "description": "Container orders in pod orders-cb9fdc8c7-8xrlq restarted 1 time(s) in the last 10 minutes.",
+    "summary": "orders: container restarted"
+  },
+  "routeLabels": {},
+  "externalURL": "http://pagerpilot-monitoring-kube-alertmanager.monitoring:9093",
+  "version": "4",
+  "groupKey": "{}/{namespace=\"demo\"}:{alertname=\"ContainerRestarting\", service=\"orders\"}",
+  "truncatedAlerts": 0
+}

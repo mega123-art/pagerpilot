@@ -1,0 +1,14 @@
+{
+  "scenario": "bad_config",
+  "alert": "HighErrorRate",
+  "service": "frontend",
+  "inject_started": "2026-10-18T13:55:55Z",
+  "inject_finished": "2026-10-18T13:56:09Z",
+  "alert_firing_at": "2026-10-18T13:58:09.613Z",
+  "webhook_received_at": "2026-10-18T13:58:19.638Z",
+  "seconds_inject_to_firing": 134,
+  "revert_started": "2026-10-18T13:58:20Z",
+  "revert_seconds": 127,
+  "alert_resolved_at": "2026-10-18T14:00:24.613Z",
+  "baseline_restored": true
+}

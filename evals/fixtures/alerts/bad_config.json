@@ -1,0 +1,47 @@
+{
+  "receiver": "alert-echo",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "HighErrorRate",
+        "namespace": "demo",
+        "prometheus": "monitoring/pagerpilot-monitoring-kube-prometheus",
+        "service": "frontend",
+        "severity": "critical"
+      },
+      "annotations": {
+        "dashboard_url": "http://localhost:3000/d/demo-shop/demo-shop?var-service=frontend",
+        "description": "100% of requests to frontend returned 5xx over the last 2 minutes.",
+        "summary": "frontend: elevated 5xx responses"
+      },
+      "startsAt": "2026-10-18T13:58:09.613Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://pagerpilot-monitoring-kube-prometheus.monitoring:9090/graph?g0.expr=sum+by+%28service%2C+namespace%29+%28rate%28http_requests_total%7Bnamespace%3D%22demo%22%2Croute%21~%22%2Fhealth%7C%2Fmetrics%22%2Cstatus%3D~%225..%22%7D%5B2m%5D%29%29+%2F+sum+by+%28service%2C+namespace%29+%28rate%28http_requests_total%7Bnamespace%3D%22demo%22%2Croute%21~%22%2Fhealth%7C%2Fmetrics%22%7D%5B2m%5D%29%29+%3E+0.05&g0.tab=1",
+      "fingerprint": "703ed38585b5ab13"
+    }
+  ],
+  "notification_reason": "first notification",
+  "groupLabels": {
+    "alertname": "HighErrorRate",
+    "service": "frontend"
+  },
+  "commonLabels": {
+    "alertname": "HighErrorRate",
+    "namespace": "demo",
+    "prometheus": "monitoring/pagerpilot-monitoring-kube-prometheus",
+    "service": "frontend",
+    "severity": "critical"
+  },
+  "commonAnnotations": {
+    "dashboard_url": "http://localhost:3000/d/demo-shop/demo-shop?var-service=frontend",
+    "description": "100% of requests to frontend returned 5xx over the last 2 minutes.",
+    "summary": "frontend: elevated 5xx responses"
+  },
+  "routeLabels": {},
+  "externalURL": "http://pagerpilot-monitoring-kube-alertmanager.monitoring:9093",
+  "version": "4",
+  "groupKey": "{}/{namespace=\"demo\"}:{alertname=\"HighErrorRate\", service=\"frontend\"}",
+  "truncatedAlerts": 0
+}

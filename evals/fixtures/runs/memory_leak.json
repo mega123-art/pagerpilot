@@ -1,0 +1,14 @@
+{
+  "scenario": "memory_leak",
+  "alert": "ContainerRestarting",
+  "service": "orders",
+  "inject_started": "2026-10-18T14:01:26Z",
+  "inject_finished": "2026-10-18T14:01:27Z",
+  "alert_firing_at": "2026-10-18T14:06:54.613Z",
+  "webhook_received_at": "2026-10-18T14:07:04.648Z",
+  "seconds_inject_to_firing": 333,
+  "revert_started": "2026-10-18T14:07:04Z",
+  "revert_seconds": 584,
+  "alert_resolved_at": "2026-10-18T14:16:39.613Z",
+  "baseline_restored": true
+}

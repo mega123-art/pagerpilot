@@ -1,0 +1,14 @@
+{
+  "scenario": "slow_query_missing_index",
+  "alert": "HighLatencyP95",
+  "service": "frontend",
+  "inject_started": "2026-10-18T13:45:00Z",
+  "inject_finished": "2026-10-18T13:45:00Z",
+  "alert_firing_at": "2026-10-18T13:46:24.613Z",
+  "webhook_received_at": "2026-10-18T13:46:34.625Z",
+  "seconds_inject_to_firing": 90,
+  "revert_started": "2026-10-18T13:46:36Z",
+  "revert_seconds": 264,
+  "alert_resolved_at": "2026-10-18T13:48:24.613Z",
+  "baseline_restored": true
+}

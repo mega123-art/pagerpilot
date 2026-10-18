@@ -1,0 +1,47 @@
+{
+  "receiver": "alert-echo",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "HighLatencyP95",
+        "namespace": "demo",
+        "prometheus": "monitoring/pagerpilot-monitoring-kube-prometheus",
+        "service": "frontend",
+        "severity": "warning"
+      },
+      "annotations": {
+        "dashboard_url": "http://localhost:3000/d/demo-shop/demo-shop?var-service=frontend",
+        "description": "p95 request latency for frontend is 2.08s over the last 2 minutes.",
+        "summary": "frontend: slow responses"
+      },
+      "startsAt": "2026-10-18T13:46:24.613Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://pagerpilot-monitoring-kube-prometheus.monitoring:9090/graph?g0.expr=histogram_quantile%280.95%2C+sum+by+%28service%2C+namespace%2C+le%29+%28rate%28http_request_duration_seconds_bucket%7Bnamespace%3D%22demo%22%2Croute%21~%22%2Fhealth%7C%2Fmetrics%22%7D%5B2m%5D%29%29%29+%3E+0.5&g0.tab=1",
+      "fingerprint": "c615d13b6dc86438"
+    }
+  ],
+  "notification_reason": "first notification",
+  "groupLabels": {
+    "alertname": "HighLatencyP95",
+    "service": "frontend"
+  },
+  "commonLabels": {
+    "alertname": "HighLatencyP95",
+    "namespace": "demo",
+    "prometheus": "monitoring/pagerpilot-monitoring-kube-prometheus",
+    "service": "frontend",
+    "severity": "warning"
+  },
+  "commonAnnotations": {
+    "dashboard_url": "http://localhost:3000/d/demo-shop/demo-shop?var-service=frontend",
+    "description": "p95 request latency for frontend is 2.08s over the last 2 minutes.",
+    "summary": "frontend: slow responses"
+  },
+  "routeLabels": {},
+  "externalURL": "http://pagerpilot-monitoring-kube-alertmanager.monitoring:9093",
+  "version": "4",
+  "groupKey": "{}/{namespace=\"demo\"}:{alertname=\"HighLatencyP95\", service=\"frontend\"}",
+  "truncatedAlerts": 0
+}
