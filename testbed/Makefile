@@ -48,7 +48,7 @@ reset: down up
 # P1 checks only: pods Ready, targets up. P7 extends (SLOs, alerts, logs).
 verify: guard
 	@$(K) -n demo wait --for=condition=Ready pod -l app.kubernetes.io/part-of=demo-shop --timeout=60s
-	@$(K) -n monitoring get --raw '/api/v1/namespaces/monitoring/services/pagerpilot-monitoring-kube-prom-prometheus:9090/proxy/api/v1/query?query=up%7Bnamespace%3D%22demo%22%7D' \
+	@$(K) -n monitoring get --raw '/api/v1/namespaces/monitoring/services/pagerpilot-monitoring-kube-prometheus:9090/proxy/api/v1/query?query=up%7Bnamespace%3D%22demo%22%7D' \
 	  | jq -e '(.data.result | length > 0) and all(.data.result[]; .value[1] == "1")' >/dev/null \
 	  && echo "all demo targets up=1" || { echo "demo targets missing or down" >&2; exit 1; }
 
