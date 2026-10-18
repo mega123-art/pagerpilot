@@ -25,3 +25,9 @@
 - Alertmanager: group_by [alertname, service], 10s/1m/1h, send_resolved; namespace="demo" -> webhook `alert-echo` (ns platform), everything else -> `null`.
 - Verified: all 4 rules health=ok; under load only Watchdog fires; manual alert (namespace=demo) reached alert-echo, a kube-system one did not.
 - `make monitoring` applies the Helm values. dashboard_url assumes `kubectl -n monitoring port-forward svc/pagerpilot-monitoring-grafana 3000:80`.
+
+## P5: scenarios without deploy history (2026-10-18)
+- memory_leak, db_pool_exhaustion, slow_query_missing_index: inject/revert scripts (idempotent, tested twice), `ext-client` traffic source, ground truth in `evals/scenarios/`.
+- Tuned on the live cluster: leak 20->12 rps (OOM in ~4.7 min instead of ~3); export 6->4 rps (still saturates the pool, less than total outage); table widened and postgres CPU-limited, since a missing index cost only 6ms on the 32MB table.
+- orders 1.0.1 (notes column) and 1.0.2 (slow-export warn log). Postgres reseeded.
+- Known: slow_query also alerts on orders (not only frontend); memory alert does not fire in memory_leak.

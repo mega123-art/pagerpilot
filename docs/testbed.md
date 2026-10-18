@@ -23,3 +23,17 @@ frontend :3000 -> orders :3001 -> postgres :5432. `frontend` routes: `/checkout`
 `orders` metrics: `db_pool_connections{state}`, `db_query_duration_seconds{query}` (query time only, excludes pool wait). `frontend` metrics: `upstream_requests_total`, `upstream_request_duration_seconds` {upstream,status}; status is the HTTP code, `timeout` or `error`.
 
 Postgres: `postgres:16-alpine`, trust auth + emptyDir (local kind only, no secrets). Init script seeds 500k orders over 5000 customers with `idx_orders_customer_id`. A fresh pod re-seeds (~20s).
+
+## Scenarios (P5)
+Extra traffic comes from a Deployment `ext-client` (k6, ns demo) created by `inject.sh` and removed by `revert.sh`. Scripts: `testbed/scenarios/<id>/`. Ground truth: `evals/scenarios/<id>.yaml` (outside `testbed/` on purpose).
+
+| scenario | trigger | settle (measured) | alerts | metrics | logs | deploys |
+|---|---|---|---|---|---|---|
+| memory_leak | 12 rps with unique session ids -> unbounded session map in orders | first OOM ~4.7 min | ContainerRestarting (memory alert doesn't hold >90% for 2m) | strong | weak | none |
+| db_pool_exhaustion | 4 rps POST /reports/export, each holds a connection ~4s | ~2 min | HighErrorRate + HighLatencyP95 on orders and frontend | strong | strong | none |
+| slow_query_missing_index | DROP INDEX on orders.customer_id + 8 rps order-history traffic | ~2-3 min | HighLatencyP95 on frontend and orders | strong | medium | none |
+
+Notes
+- Run scenarios >=10 min apart or let alerts resolve first: ContainerRestarting looks back 10 min.
+- The wider `notes` column (~190B/row), postgres `cpu: 500m` and orders `NODE_OPTIONS=--max-old-space-size=192` exist so these faults look the way they do in production: scans cost real time, and the leak ends in OOMKilled instead of a V8 heap abort.
+- Baseline orders image is 1.0.2 (1.0.1 added the notes column, 1.0.2 the slow-export warning). bad_deploy will ship 1.1.0.
