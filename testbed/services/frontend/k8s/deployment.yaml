@@ -2,30 +2,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demo-api
+  name: frontend
   namespace: demo
   labels:
-    app: demo-api
+    app: frontend
     app.kubernetes.io/part-of: demo-shop
     app.kubernetes.io/version: "${VERSION}"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: demo-api
+      app: frontend
   template:
     metadata:
       labels:
-        app: demo-api
+        app: frontend
         app.kubernetes.io/part-of: demo-shop
         app.kubernetes.io/version: "${VERSION}"
       annotations:
         demo-shop/git-sha: "${GIT_SHA}"
     spec:
       containers:
-        - name: demo-api
-          image: demo-api:${VERSION}
+        - name: frontend
+          image: frontend:${VERSION}
           imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "3000"
+            - name: ORDERS_URL
+              value: http://orders:3001
+            - name: UPSTREAM_TIMEOUT_MS
+              value: "3000"
           ports:
             - name: http
               containerPort: 3000

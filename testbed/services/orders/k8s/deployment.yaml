@@ -1,0 +1,63 @@
+# Rendered with envsubst (VERSION, GIT_SHA) by `make up`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  namespace: demo
+  labels:
+    app: orders
+    app.kubernetes.io/part-of: demo-shop
+    app.kubernetes.io/version: "${VERSION}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+        app.kubernetes.io/part-of: demo-shop
+        app.kubernetes.io/version: "${VERSION}"
+      annotations:
+        demo-shop/git-sha: "${GIT_SHA}"
+    spec:
+      containers:
+        - name: orders
+          image: orders:${VERSION}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "3001"
+            - name: PGHOST
+              value: postgres
+            - name: PGUSER
+              value: postgres
+            - name: PGDATABASE
+              value: shop
+            - name: DB_POOL_MAX
+              value: "10"
+            - name: EXPORT_HOLD_MS
+              value: "4000"
+          ports:
+            - name: http
+              containerPort: 3001
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
