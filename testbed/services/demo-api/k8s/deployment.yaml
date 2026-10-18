@@ -1,3 +1,4 @@
+# Rendered with envsubst (VERSION, GIT_SHA) by `make up`.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,6 +6,8 @@ metadata:
   namespace: demo
   labels:
     app: demo-api
+    app.kubernetes.io/part-of: demo-shop
+    app.kubernetes.io/version: "${VERSION}"
 spec:
   replicas: 1
   selector:
@@ -14,16 +17,15 @@ spec:
     metadata:
       labels:
         app: demo-api
+        app.kubernetes.io/part-of: demo-shop
+        app.kubernetes.io/version: "${VERSION}"
+      annotations:
+        demo-shop/git-sha: "${GIT_SHA}"
     spec:
       containers:
         - name: demo-api
-          image: pagerpilot-demo-api:0.2.0
+          image: demo-api:${VERSION}
           imagePullPolicy: IfNotPresent
-          env:
-            - name: SERVICE_NAME
-              value: demo-api
-            - name: FAULT_MODE
-              value: ""
           ports:
             - name: http
               containerPort: 3000
