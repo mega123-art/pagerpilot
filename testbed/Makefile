@@ -1,46 +1,23 @@
 # PagerPilot testbed. Every target that touches the cluster goes through `guard`.
+# orders and frontend are built from the demo-shop repo (see scripts/shop.sh).
 CONTEXT  := kind-pagerpilot
 K        := kubectl --context $(CONTEXT)
-SERVICES := orders frontend alert-echo
-SVC_DIR  := services
-GIT_SHA  := $(shell git rev-parse --short HEAD)$(shell git diff --quiet HEAD -- . || echo -dirty)
+SERVICES := orders frontend
 
-.PHONY: monitoring loadgen guard build up down reset verify inject revert smoke
+.PHONY: guard build up down reset verify inject revert smoke settle monitoring loadgen
 
 guard:
 	@[ "$$(kubectl config current-context)" = "$(CONTEXT)" ] || \
 	  { echo "refusing to run: kubectl context is '$$(kubectl config current-context)', need '$(CONTEXT)'" >&2; exit 1; }
 
-# Build each service image tagged <service>:<semver> and load it into kind.
-# A tag is never reused for different code: the image records a hash of the
-# service dir + _shared, and the build fails if the tag exists with another hash.
+# Build baseline images (<service>:<semver>) and load them into kind.
 build: guard
-	@set -e; for s in $(SERVICES); do \
-	  v=$$(node -p "require('./$(SVC_DIR)/$$s/package.json').version"); \
-	  h=$$(find $(SVC_DIR)/$$s $(SVC_DIR)/_shared -type f -not -path '*/node_modules/*' -not -path '*/k8s/*' | sort | xargs shasum | shasum | cut -c1-12); \
-	  old=$$(docker image inspect $$s:$$v --format '{{index .Config.Labels "code.hash"}}' 2>/dev/null || true); \
-	  if [ -n "$$old" ] && [ "$$old" != "$$h" ]; then \
-	    echo "$$s:$$v exists with different code; bump version in $(SVC_DIR)/$$s/package.json (a tag must never map to different code)" >&2; exit 1; fi; \
-	  [ "$$old" = "$$h" ] || docker build -q -f $(SVC_DIR)/Dockerfile \
-	    --build-arg SERVICE=$$s --build-arg VERSION=$$v --build-arg GIT_SHA=$(GIT_SHA) --build-arg CODE_HASH=$$h \
-	    -t $$s:$$v $(SVC_DIR); \
-	  kind load docker-image $$s:$$v --name pagerpilot; \
-	done
+	@set -e; for s in $(SERVICES) alert-echo; do scripts/build-image.sh $$s >/dev/null; done
 
-up: build
-	$(K) apply -f k8s/namespace.yaml -f k8s/servicemonitor.yaml -f $(SVC_DIR)/postgres/k8s/ -f monitoring/rules/ -f monitoring/dashboard.yaml
-	@set -e; for s in $(SERVICES); do \
-	  v=$$(node -p "require('./$(SVC_DIR)/$$s/package.json').version"); \
-	  $(K) apply -f $(SVC_DIR)/$$s/k8s/service.yaml; \
-	  sha=$$(docker image inspect $$s:$$v --format '{{index .Config.Labels "git.sha"}}'); \
-	  VERSION=$$v GIT_SHA=$$sha envsubst '$$VERSION $$GIT_SHA' < $(SVC_DIR)/$$s/k8s/deployment.yaml | $(K) apply -f -; \
-	done
+up: guard
+	$(K) apply -f k8s/namespace.yaml -f k8s/servicemonitor.yaml -f services/postgres/k8s/ -f monitoring/rules/ -f monitoring/dashboard.yaml
+	@set -e; for s in $(SERVICES) alert-echo; do scripts/deploy.sh $$s; done
 	@$(MAKE) --no-print-directory loadgen
-
-# Applies monitoring/prometheus-values.yaml (Alertmanager routing, disabled kind components).
-monitoring: guard
-	helm --kube-context $(CONTEXT) upgrade pagerpilot-monitoring prometheus-community/kube-prometheus-stack \
-	  --version 92.10.1 -n monitoring -f monitoring/prometheus-values.yaml
 
 # Scripts live in ConfigMap loadgen-scripts (every file in loadgen/); changing one restarts the pod.
 loadgen: guard
@@ -49,9 +26,18 @@ loadgen: guard
 	$(K) apply -f k8s/loadgen.yaml
 	$(K) -n demo rollout restart deploy/loadgen
 
+# Block until no alerts are pending/firing for ns demo.
+settle: guard
+	@. scenarios/lib.sh && wait_quiet
+
+# Applies monitoring/prometheus-values.yaml (Alertmanager routing, disabled kind components).
+monitoring: guard
+	helm --kube-context $(CONTEXT) upgrade pagerpilot-monitoring prometheus-community/kube-prometheus-stack \
+	  --version 92.10.1 -n monitoring -f monitoring/prometheus-values.yaml
+
 # Deletes everything labelled part-of=demo-shop in ns demo (Deployments, Services,
-# the postgres ConfigMap; postgres data is an emptyDir so it goes too) plus the
-# demo-shop ServiceMonitor. Keeps monitoring stack, namespaces and Docker images.
+# ConfigMaps; postgres data is an emptyDir so it goes too) plus the demo-shop
+# ServiceMonitor, rules and dashboard. Keeps the monitoring stack, namespaces, alert-echo and images.
 down: guard
 	$(K) delete -n demo deploy,svc,configmap -l app.kubernetes.io/part-of=demo-shop
 	$(K) delete -n monitoring servicemonitor/demo-shop prometheusrule/demo-shop configmap/demo-shop-dashboard --ignore-not-found

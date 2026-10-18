@@ -21,6 +21,7 @@ spec:
         app.kubernetes.io/version: "${VERSION}"
       annotations:
         demo-shop/git-sha: "${GIT_SHA}"
+        demo-shop/config-sha: "${CONFIG_SHA}"
     spec:
       containers:
         - name: frontend
@@ -29,10 +30,9 @@ spec:
           env:
             - name: PORT
               value: "3000"
-            - name: ORDERS_URL
-              value: http://orders:3001
-            - name: UPSTREAM_TIMEOUT_MS
-              value: "3000"
+          envFrom:
+            - configMapRef:
+                name: frontend-config
           ports:
             - name: http
               containerPort: 3000
