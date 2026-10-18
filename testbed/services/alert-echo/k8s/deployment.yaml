@@ -1,0 +1,42 @@
+# Rendered with envsubst (VERSION, GIT_SHA) by `make up`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-echo
+  namespace: platform
+  labels:
+    app: alert-echo
+    app.kubernetes.io/version: "${VERSION}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-echo
+  template:
+    metadata:
+      labels:
+        app: alert-echo
+        app.kubernetes.io/version: "${VERSION}"
+      annotations:
+        demo-shop/git-sha: "${GIT_SHA}"
+    spec:
+      containers:
+        - name: alert-echo
+          image: alert-echo:${VERSION}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PORT
+              value: "8080"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
