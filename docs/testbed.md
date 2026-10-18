@@ -55,3 +55,26 @@ Measured: bad_deploy errors start at rollout, alerts after ~2 min, back to basel
 
 ## These services are intentionally insecure
 No auth, `SELECT *`, a never-evicted session map, trust-auth Postgres. They are throwaway targets for incident scenarios and run only on the local kind cluster. Never deploy them anywhere reachable.
+
+## Verification (P7)
+- `make verify` ([scripts/verify.sh](../testbed/scripts/verify.sh)): context, pods Ready, orders seeded, all targets up, frontend rate > 5 rps, p95 < 150ms and zero 5xx over `SLO_WINDOW` (5m), no firing alerts except Watchdog and none pending in `demo`, frontend/orders logs with `request_id` queryable in Loki.
+- `make smoke S=<id>` ([scripts/smoke.sh](../testbed/scripts/smoke.sh)): verify -> inject -> wait for the primary expected alert (first expected alert on `target_service`) -> save the webhook body alert-echo received to `evals/fixtures/alerts/<id>.json` -> revert (blocks until alerts clear) -> wait for the `resolved` notification -> verify again with a 2m window. Timings go to `evals/fixtures/runs/<id>.json`. An aborted run still reverts.
+- `make control`: 15 minutes with no change; zero alerts of any state. Result in `evals/fixtures/runs/control.json`.
+
+## Adding a scenario
+1. `testbed/scenarios/<id>/inject.sh` and `revert.sh`: source `../lib.sh` (context guard, `$K`, `start_client`/`stop_client`, `wait_quiet`). Both must be idempotent; `revert.sh` ends with `wait_quiet`. Extra traffic goes in a k6 script run via `start_client`. Names and labels must not hint at the cause.
+2. Prefer ordinary triggers (traffic, a DB change, a deploy, a config commit). Never add a switch to the services.
+3. `evals/scenarios/<id>.yaml`: `id`, `target_service`, `inject`, `revert`, `settle_seconds`, `expected_alerts`, `ground_truth {root_cause_service, category, summary, must_mention, evidence_by_signal {metrics, logs, deploys}}`.
+4. Tune against the live cluster, then `make smoke S=<id>` and commit the fixtures.
+
+## Measured runs (make smoke, 2026-10-18)
+| scenario | primary alert | inject -> firing | revert -> baseline | baseline restored |
+|---|---|---|---|---|
+| db_pool_exhaustion | HighErrorRate / orders | 91s | 111s | yes |
+| slow_query_missing_index | HighLatencyP95 / frontend | 90s | 264s | yes |
+| bad_deploy | HighErrorRate / orders | 127s | 141s | yes |
+| bad_config | HighErrorRate / frontend | 134s | 127s | yes |
+| memory_leak | ContainerRestarting / orders | 333s | 584s | yes |
+| control (no change, 15 min) | none | - | - | 0 alerts, frontend p95 9.6ms, 0 5xx |
+
+Payloads in `evals/fixtures/alerts/`, timestamps in `evals/fixtures/runs/`. The audit for words like fault/inject/chaos/simulated/scenario found nothing in the services, manifests, rules, alert payloads, live object names, logs or metric names; the only matches are substrings of `default`, the k6 option key `scenarios` inside the load-generator script, and kernel `refault` metrics.

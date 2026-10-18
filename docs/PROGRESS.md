@@ -37,3 +37,9 @@
 - bad_deploy (orders v1.1.0, unapplied migration -> 42703 on order history) and bad_config (ORDERS_URL -> :3002 -> frontend timeouts). Both inject/revert tested; GitHub Deployment recorded at inject and removed on revert; repo reset to baseline.
 - `wait_quiet` in every revert, `make settle`. Memory alert caveat documented (ramp tried, reverted).
 - Ground truth in evals/scenarios/{bad_deploy,bad_config}.yaml.
+
+## P7: verification and docs (2026-10-18)
+- `make verify` (context, pods, seed, targets, SLOs, alerts, Loki), `make smoke S=<id>`, `make control`.
+- smoke passes for all five scenarios; payloads and timings saved under `evals/fixtures/`. Control run: 15 min, zero alerts.
+- smoke waits for a clean baseline before injecting (the first batch aborted because a 5m SLO window still held the previous incident).
+- README, evidence matrix, how-to-add-a-scenario, measured timings in docs/testbed.md.
